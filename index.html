@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>我的存錢日記</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0f172a;
+      --bg-card: #1e293b;
+      --bg-input: #0f172a;
+      --border-color: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-primary: #6366f1;
+      --accent-hover: #4f46e5;
+      --expense-color: #f43f5e;
+      --income-color: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Noto Sans TC', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      line-height: 1.6;
+      padding-bottom: 60px;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    /* 密碼解鎖畫面 */
+    #authScreen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--bg-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 3000;
+      padding: 20px;
+    }
+
+    .auth-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .auth-box h2 {
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .auth-box p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    .auth-error {
+      color: var(--expense-color);
+      font-size: 0.85rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* 頂部標題列 */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #a5b4fc, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .total-badge {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: 12px;
+      text-align: right;
+    }
+
+    .total-badge span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .total-badge strong {
+      font-size: 1.25rem;
+      color: #38bdf8;
+    }
+
+    .btn-lock {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: 0.2s;
+    }
+
+    .btn-lock:hover {
+      border-color: var(--expense-color);
+      color: var(--expense-color);
+    }
+
+    /* 皮包區塊 */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--accent-primary);
+      color: #a5b4fc;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: 0.2s;
+    }
+
+    .btn-outline:hover {
+      background: var(--accent-primary);
+      color: #fff;
+    }
+
+    .wallets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .wallet-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wallet-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; width: 6px; height: 100%;
+      background-color: var(--card-color, #6366f1);
+    }
+
+    .wallet-card:hover {
+      transform: translateY(-2px);
+      border-color: #64748b;
+    }
+
+    .wallet-card.active {
+      border-color: var(--card-color, #6366f1);
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
+    }
+
+    .wallet-name { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+    .wallet-purpose { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; }
+    .wallet-balance { font-size: 1.4rem; font-weight: 700; }
+
+    /* 主要操作區 */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 768px) {
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .type-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+      background: var(--bg-input);
+      padding: 4px;
+      border-radius: 10px;
+    }
+
+    .type-tab {
+      padding: 10px;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text-muted);
+      transition: 0.2s;
+    }
+
+    .type-tab.active.expense { background: var(--expense-color); color: #fff; }
+    .type-tab.active.income { background: var(--income-color); color: #fff; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; text-align: left; }
+
+    .form-control {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .form-control:focus { border-color: var(--accent-primary); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .btn-submit {
+      width: 100%;
+      background: var(--accent-primary);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.2s;
+      margin-top: 6px;
+    }
+
+    .btn-submit:hover { background: var(--accent-hover); }
+
+    .chart-container {
+      position: relative;
+      height: 240px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .tx-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .tx-item {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tx-left { display: flex; align-items: center; gap: 12px; }
+    .tx-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; background: var(--bg-card);
+    }
+
+    .tx-info h4 { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .wallet-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; color: #fff; font-weight: 500; }
+    .tx-meta { font-size: 0.8rem; color: var(--text-muted); }
+    .tx-right { display: flex; align-items: center; gap: 14px; }
+    .tx-amount { font-weight: 700; font-size: 1.05rem; }
+    .tx-amount.expense { color: var(--expense-color); }
+    .tx-amount.income { color: var(--income-color); }
+
+    .btn-del { background: transparent; border: none; color: #64748b; cursor: pointer; font-size: 1rem; padding: 4px; }
+    .btn-del:hover { color: var(--expense-color); }
+
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: none; justify-content: center; align-items: center;
+      z-index: 1000; padding: 20px;
+    }
+
+    .modal {
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: 16px; padding: 24px; width: 100%; max-width: 400px;
+    }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .close-modal { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+
+    #loader {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.85);
+      display: none; flex-direction: column; justify-content: center; align-items: center;
+      z-index: 4000;
+    }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 4px solid var(--border-color); border-top-color: var(--accent-primary);
+      border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- 載入中畫面 -->
+  <div id="loader">
+    <div class="spinner"></div>
+    <p style="color: #94a3b8; font-size: 0.9rem;">正在與雲端試算表連線...</p>
+  </div>
+
+  <!-- 密碼解鎖畫面 -->
+  <div id="authScreen">
+    <div class="auth-box">
+      <div style="font-size: 2.5rem; margin-bottom: 10px;">🔐</div>
+      <h2>我的存錢日記</h2>
+      <p>請輸入操作密碼以解鎖帳本</p>
+      <form onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <input type="password" class="form-control" id="passwordInput" placeholder="輸入操作密碼" required style="text-align: center; letter-spacing: 2px;">
+        </div>
+        <button type="submit" class="btn-submit">解鎖進入</button>
+      </form>
+      <div class="auth-error" id="authError">密碼錯誤，請重新輸入！</div>
+    </div>
+  </div>
+
+  <!-- 主畫面 -->
+  <div class="container" id="mainApp" style="display: none;">
+    <header>
+      <div>
+        <h1>📔 我的存錢日記</h1>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">專屬於你的多皮包收支管理</p>
+      </div>
+      <div class="header-right">
+        <div class="total-badge">
+          <span>所有皮包總資產</span>
+          <strong id="totalAssets">$0</strong>
+        </div>
+        <button class="btn-lock" onclick="logout()" title="登出並鎖定">🔒 鎖定</button>
+      </div>
+    </header>
+
+    <div class="section-header">
+      <div class="section-title">👛 我的皮包 <span style="font-size:0.8rem; font-weight:normal; color:var(--text-muted);">(點擊可篩選明細)</span></div>
+      <button class="btn-outline" onclick="openWalletModal()">+ 新增皮包</button>
+    </div>
+    <div class="wallets-grid" id="walletsContainer"></div>
+
+    <div class="main-grid">
+      <div class="card">
+        <div class="section-title" style="margin-bottom: 14px;">✍️ 記上一筆</div>
+        <div class="type-tabs">
+          <div class="type-tab active expense" id="tabExpense" onclick="switchType('支出')">支出</div>
+          <div class="type-tab income" id="tabIncome" onclick="switchType('收入')">收入</div>
+        </div>
+
+        <form id="txForm" onsubmit="handleTxSubmit(event)">
+          <div class="form-row">
+            <div class="form-group">
+              <label>使用皮包</label>
+              <select class="form-control" id="txWallet" required></select>
+            </div>
+            <div class="form-group">
+              <label>分類項目</label>
+              <select class="form-control" id="txCategory" required></select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>金額 ($)</label>
+              <input type="number" class="form-control" id="txAmount" min="1" required placeholder="0">
+            </div>
+            <div class="form-group">
+              <label>日期</label>
+              <input type="date" class="form-control" id="txDate" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>備註說明 (選填)</label>
+            <input type="text" class="form-control" id="txNote" placeholder="例如：買了珍奶、遊戲月卡...">
+          </div>
+
+          <button type="submit" class="btn-submit">儲存紀錄</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div class="section-title">📊 支出比例分析</div>
+          <span id="chartScopeLabel" style="font-size: 0.8rem; color: #a5b4fc;">全部皮包</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="expenseChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">🧾 收支明細日記</div>
+        <div>
+          <select class="form-control" id="filterWallet" style="padding: 6px 10px; font-size:0.85rem;" onchange="renderAll()">
+            <option value="ALL">顯示全部皮包</option>
+          </select>
+        </div>
+      </div>
+      <div class="tx-list" id="txList"></div>
+    </div>
+  </div>
+
+  <!-- 新增皮包彈窗 -->
+  <div class="modal-overlay" id="walletModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 style="font-size: 1.1rem;">✨ 建立新用途皮包</h3>
+        <button class="close-modal" onclick="closeWalletModal()">&times;</button>
+      </div>
+      <form onsubmit="handleWalletSubmit(event)">
+        <div class="form-group">
+          <label>皮包名稱</label>
+          <input type="text" class="form-control" id="wName" required placeholder="例如：課金娛樂包、治裝費">
+        </div>
+        <div class="form-group">
+          <label>用途說明</label>
+          <input type="text" class="form-control" id="wPurpose" required placeholder="例如：專門用來買遊戲與衣服">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>初始金額 ($)</label>
+            <input type="number" class="form-control" id="wInitial" value="0" required>
+          </div>
+          <div class="form-group">
+            <label>代表標籤色</label>
+            <input type="color" class="form-control" id="wColor" value="#ec4899" style="height: 42px; padding: 4px;">
+          </div>
+        </div>
+        <button type="submit" class="btn-submit">確認建立</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // 【重要設定】請在下方引號內貼上你的 GAS 部署網址
+    // ==========================================
+    const GAS_API_URL = '請在這裡貼上你的_GAS_網頁應用程式網址';
+
+    const CATEGORIES = {
+      '支出': [
+        { name: '早餐', icon: '🥪' },
+        { name: '午餐晚餐', icon: '🍱' },
+        { name: '零食', icon: '🍿' },
+        { name: '課金', icon: '🎮' },
+        { name: '飲料', icon: '🧋' },
+        { name: '衣服', icon: '👕' },
+        { name: '鞋子', icon: '👟' },
+        { name: '化妝品', icon: '💄' }
+      ],
+      '收入': [
+        { name: '零用錢', icon: '💵' },
+        { name: '考試獎勵金', icon: '🏆' },
+        { name: '路上撿到錢', icon: '🍀' },
+        { name: '伙食費', icon: '🍽️' },
+        { name: '打工錢', icon: '💼' }
+      ]
+    };
+
+    let currentPassword = localStorage.getItem('diary_pwd') || '';
+    let appData = { wallets: [], transactions: [] };
+    let currentType = '支出';
+    let chartInstance = null;
+
+    window.onload = function() {
+      document.getElementById('txDate').valueAsDate = new Date();
+      updateCategoryOptions();
+      
+      // 如果瀏覽器有記住密碼，直接嘗試自動登入
+      if (currentPassword) {
+        callGasApi('getData', {}, true);
+      }
+    };
+
+    function showLoader(show) {
+      document.getElementById('loader').style.display = show ? 'flex' : 'none';
+    }
+
+    // 統一呼叫 GAS API 的函式
+    async function callGasApi(action, extraPayload = {}, isAutoLogin = false) {
+      if (GAS_API_URL.includes('請在這裡貼上')) {
+        alert('請先在 index.html 中設定你的 GAS_API_URL 網址！');
+        return;
+      }
+
+      showLoader(true);
+      document.getElementById('authError').style.display = 'none';
+
+      try {
+        const response = await fetch(GAS_API_URL, {
+          method: 'POST',
+          // 使用 text/plain 避開 CORS 預檢問題
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            password: currentPassword,
+            action: action,
+            ...extraPayload
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+          // 驗證成功，儲存密碼並顯示主畫面
+          localStorage.setItem('diary_pwd', currentPassword);
+          document.getElementById('authScreen').style.display = 'none';
+          document.getElementById('mainApp').style.display = 'block';
+          appData = result;
+          renderAll();
+        } else {
+          // 密碼錯誤或後端報錯
+          localStorage.removeItem('diary_pwd');
+          currentPassword = '';
+          document.getElementById('authScreen').style.display = 'flex';
+          document.getElementById('mainApp').style.display = 'none';
+          if (!isAutoLogin) {
+            document.getElementById('authError').textContent = result.message || '密碼錯誤！';
+            document.getElementById('authError').style.display = 'block';
+          }
+        }
+      } catch (err) {
+        alert('連線失敗，請檢查網路或 GAS 部署權限是否設為「所有人」：' + err);
+      } finally {
+        showLoader(false);
+      }
+    }
+
+    // 登入表單送出
+    function handleLogin(e) {
+      e.preventDefault();
+      currentPassword = document.getElementById('passwordInput').value;
+      callGasApi('getData');
+    }
+
+    // 登出並鎖定
+    function logout() {
+      localStorage.removeItem('diary_pwd');
+      currentPassword = '';
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('mainApp').style.display = 'none';
+      document.getElementById('authScreen').style.display = 'flex';
+    }
+
+    function switchType(type) {
+      currentType = type;
+      document.getElementById('tabExpense').classList.toggle('active', type === '支出');
+      document.getElementById('tabIncome').classList.toggle('active', type === '收入');
+      updateCategoryOptions();
+    }
+
+    function updateCategoryOptions() {
+      const select = document.getElementById('txCategory');
+      select.innerHTML = '';
+      CATEGORIES[currentType].forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.name;
+        opt.textContent = `${cat.icon} ${cat.name}`;
+        select.appendChild(opt);
+      });
+    }
+
+    function getCategoryIcon(type, catName) {
+      const list = CATEGORIES[type] || [];
+      const found = list.find(c => c.name === catName);
+      return found ? found.icon : '💰';
+    }
+
+    function renderAll() {
+      const selectedFilter = document.getElementById('filterWallet').value;
+
+      let totalAssets = 0;
+      const walletMap = {};
+      appData.wallets.forEach(w => {
+        w.currentBalance = w.initialBalance;
+        walletMap[w.id] = w;
+      });
+
+      appData.transactions.forEach(tx => {
+        const w = walletMap[tx.walletId];
+        if (w) {
+          if (tx.type === '收入') w.currentBalance += tx.amount;
+          else w.currentBalance -= tx.amount;
+        }
+      });
+
+      const walletsContainer = document.getElementById('walletsContainer');
+      const txWalletSelect = document.getElementById('txWallet');
+      const filterWalletSelect = document.getElementById('filterWallet');
+      
+      const prevTxWallet = txWalletSelect.value;
+      walletsContainer.innerHTML = '';
+      txWalletSelect.innerHTML = '';
+      filterWalletSelect.innerHTML = '<option value="ALL">顯示全部皮包</option>';
+
+      appData.wallets.forEach(w => {
+        totalAssets += w.currentBalance;
+
+        const card = document.createElement('div');
+        card.className = 'wallet-card' + (selectedFilter === w.id ? ' active' : '');
+        card.style.setProperty('--card-color', w.color);
+        card.onclick = () => {
+          filterWalletSelect.value = (filterWalletSelect.value === w.id) ? 'ALL' : w.id;
+          renderAll();
+        };
+        card.innerHTML = `
+          <div class="wallet-name">${w.name}</div>
+          <div class="wallet-purpose">${w.purpose}</div>
+          <div class="wallet-balance">$${w.currentBalance.toLocaleString()}</div>
+        `;
+        walletsContainer.appendChild(card);
+
+        const opt1 = document.createElement('option');
+        opt1.value = w.id;
+        opt1.textContent = w.name;
+        txWalletSelect.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = w.id;
+        opt2.textContent = w.name;
+        filterWalletSelect.appendChild(opt2);
+      });
+
+      if (prevTxWallet && walletMap[prevTxWallet]) txWalletSelect.value = prevTxWallet;
+      filterWalletSelect.value = selectedFilter;
+      document.getElementById('totalAssets').textContent = '$' + totalAssets.toLocaleString();
+
+      const filteredTx = appData.transactions
+        .filter(tx => selectedFilter === 'ALL' || tx.walletId === selectedFilter)
+        .slice()
+        .reverse();
+
+      const txListEl = document.getElementById('txList');
+      txListEl.innerHTML = '';
+
+      if (filteredTx.length === 0) {
+        txListEl.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding: 20px;">目前還沒有任何紀錄喔！快記下第一筆吧 ✨</p>';
+      } else {
+        filteredTx.forEach(tx => {
+          const w = walletMap[tx.walletId] || { name: '未知皮包', color: '#64748b' };
+          const isExpense = tx.type === '支出';
+          const icon = getCategoryIcon(tx.type, tx.category);
+
+          const item = document.createElement('div');
+          item.className = 'tx-item';
+          item.innerHTML = `
+            <div class="tx-left">
+              <div class="tx-icon">${icon}</div>
+              <div class="tx-info">
+                <h4>
+                  ${tx.category}
+                  <span class="wallet-tag" style="background:${w.color}">${w.name}</span>
+                </h4>
+                <div class="tx-meta">${tx.date} ${tx.note ? '・' + tx.note : ''}</div>
+              </div>
+            </div>
+            <div class="tx-right">
+              <div class="tx-amount ${isExpense ? 'expense' : 'income'}">
+                ${isExpense ? '-' : '+'}$${tx.amount.toLocaleString()}
+              </div>
+              <button class="btn-del" title="刪除紀錄" onclick="handleDeleteTx('${tx.id}')">🗑️</button>
+            </div>
+          `;
+          txListEl.appendChild(item);
+        });
+      }
+
+      document.getElementById('chartScopeLabel').textContent = 
+        selectedFilter === 'ALL' ? '全部皮包' : (walletMap[selectedFilter]?.name || '');
+      renderChart(filteredTx);
+    }
+
+    function renderChart(txArray) {
+      const expenseMap = {};
+      txArray.filter(t => t.type === '支出').forEach(t => {
+        expenseMap[t.category] = (expenseMap[t.category] || 0) + t.amount;
+      });
+
+      const labels = Object.keys(expenseMap);
+      const values = Object.values(expenseMap);
+      const colors = ['#f43f5e', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ec4899', '#06b6d4', '#84cc16'];
+
+      const ctx = document.getElementById('expenseChart').getContext('2d');
+      if (chartInstance) chartInstance.destroy();
+
+      if (labels.length === 0) {
+        chartInstance = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['尚無支出紀錄'],
+            datasets: [{ data: [1], backgroundColor: ['#334155'], borderWidth: 0 }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { labels: { color: '#94a3b8' } } }
+          }
+        });
+        return;
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: '#1e293b',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#f8fafc', font: { size: 12 } }
+            }
+          }
+        }
+      });
+    }
+
+    function handleTxSubmit(e) {
+      e.preventDefault();
+      const txObj = {
+        type: currentType,
+        walletId: document.getElementById('txWallet').value,
+        category: document.getElementById('txCategory').value,
+        amount: document.getElementById('txAmount').value,
+        date: document.getElementById('txDate').value,
+        note: document.getElementById('txNote').value.trim()
+      };
+
+      callGasApi('addTransaction', { data: txObj }).then(() => {
+        document.getElementById('txAmount').value = '';
+        document.getElementById('txNote').value = '';
+      });
+    }
+
+    function handleDeleteTx(txId) {
+      if (!confirm('確定要刪除這筆紀錄嗎？餘額將會自動重新計算。')) return;
+      callGasApi('deleteTransaction', { txId: txId });
+    }
+
+    function openWalletModal() { document.getElementById('walletModal').style.display = 'flex'; }
+    function closeWalletModal() { document.getElementById('walletModal').style.display = 'none'; }
+
+    function handleWalletSubmit(e) {
+      e.preventDefault();
+      const walletObj = {
+        name: document.getElementById('wName').value.trim(),
+        purpose: document.getElementById('wPurpose').value.trim(),
+        initialBalance: document.getElementById('wInitial').value,
+        color: document.getElementById('wColor').value
+      };
+
+      closeWalletModal();
+      callGasApi('addWallet', { data: walletObj }).then(() => {
+        document.getElementById('wName').value = '';
+        document.getElementById('wPurpose').value = '';
+        document.getElementById('wInitial').value = '0';
+      });
+    }
+  </script>
+</body>
+</html>
